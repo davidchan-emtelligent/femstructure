@@ -46,6 +46,6 @@ then run the project
 
      frame -i stories15 -p
 
-![plot](./data/stories15.png)
+![plot](/data/stories15.png)
 
 
