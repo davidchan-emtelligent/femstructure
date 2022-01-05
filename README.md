@@ -45,6 +45,9 @@ then run the project
  to run with 3d plot
 
      frame -i stories15 -p
+     
+![This is an image](https://myoctocat.com/assets/images/base-octocat.svg)
+
 
 ![plot](/data/stories15.png)
 
