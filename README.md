@@ -45,3 +45,7 @@ then run the project
  to run with 3d plot
 
      frame -i stories15 -p
+
+![alt text](data/stories15.png)
+
+
