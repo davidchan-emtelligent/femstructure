@@ -53,10 +53,10 @@ def analysis_thread(tsv_dir, plot, job, verbose):
 
 def get_tsv_dir():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-i', '--input', dest='input_path', type=str, default='data/exB.3dd', help="input file/input sentence text")
+    argparser.add_argument('-i', '--input', dest='input_path', type=str, default='data/txt_examples/exB.3dd', help="input file(text) or project(name) or tsv_dir")
     argparser.add_argument('-j', '--job', dest='job', type=str, default="frame", help="job: frame/truss")
     argparser.add_argument('-p', '--plot', dest='plot', default=False, action='store_true', help="plot")
-    argparser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true', help="plot")
+    argparser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true', help="verbose")
     args = argparser.parse_args()
 
     tsv_dir = ""

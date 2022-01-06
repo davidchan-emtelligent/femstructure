@@ -16,7 +16,8 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'create=femstructure.create_stories.create:main',
+            'create=femstructure.create_stories.create:create_main',
+            'remove=femstructure.create_stories.create:remove_main',
             'frame=femstructure.main:frame_main',
             'truss=femstructure.main:truss_main'
         ],
