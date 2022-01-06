@@ -23,13 +23,13 @@ having to re-install it, run
 
 eg.
 
-to create a project 'two_story_frame' in the directory \_meta/two_story_frame/...
+to create a project 'two_story_frame' in the directory \_projects/two_story_frame/...
 
-    create -c src/femstructure/create_stories/config/config_two_story_frame,json
+    create -c data/config_examples/config_two_story_frame,json
 
 to run a 'txt' or '3dd' input text file and create a project in the directory \_meta/name_of_file/...
 
-    truss -i data/exB.3dd
+    truss -i data/txt_examples/exB.3dd
     
  to view full output
  
