@@ -95,7 +95,7 @@ def path_3dd_to_tsv_path(path):
             df = df[val['wanted_cols']]
             data_df.update({key: df[wanted_keys[key]]})
     assert(set(data_df.keys())==set(wanted_keys.keys())), (set(data_df.keys()), set(wanted_keys.keys()))
-    out_dir = os.path.join("_meta", path.split('/')[-1].split('.')[0], 'tsv')
+    out_dir = os.path.join("_projects", path.split('/')[-1].split('.')[0], 'tsv')
     if not os.path.isdir(out_dir):
         os.system("mkdir -p %s"%out_dir)
     for key, df in data_df.items():

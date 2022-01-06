@@ -60,12 +60,12 @@ def get_tsv_dir():
     args = argparser.parse_args()
 
     tsv_dir = ""
-    if not os.path.isdir('_meta'):
+    if not os.path.isdir('_projects'):
         meta_dirs = []
     else:
-        meta_dirs = os.listdir('_meta')
+        meta_dirs = os.listdir('_projects')
     if args.input_path in meta_dirs:
-        tsv_dir = os.path.join('_meta', args.input_path, 'tsv')
+        tsv_dir = os.path.join('_projects', args.input_path, 'tsv')
         print("tsv_dir :%s"%tsv_dir)
     if args.input_path.endswith('.3dd') or args.input_path.endswith('.txt'):
         tsv_dir = path_3dd_to_tsv_path(args.input_path)
