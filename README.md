@@ -10,6 +10,10 @@ To use `virtualenv` to manage dependencies, first setup a virtualenv environment
     python3 -m venv venv
     source venv/bin/activate
 
+You may want to upgrade your pip:
+
+    pip install --upgrade pip
+    
 Then within your environment install the requirements:
 
     pip install .
