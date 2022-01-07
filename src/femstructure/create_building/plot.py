@@ -94,6 +94,8 @@ def plot_section(section_axis, input_data):
     for tag, d in input_data['nodes'].items():
         tag = tag.lower()
         lst = split_ntag(tag)
+        if not lst:
+            raise ValueError("ERROR: Invalid project data: node_tag is not valid: should be <level><axis_x><axis_y>, eg: 10B4")
         if lst[pos].lower() == s_tag:
             nodes += [(tag, [float(d[k]) for k in ['x', 'y', 'z']])]
     nodes = dict(nodes)
