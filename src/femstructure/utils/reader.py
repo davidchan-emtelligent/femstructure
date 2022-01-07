@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 from .model_utils import force_columns, dir_columns, wanted_keys
-
+wanted_keys = dict([(key, val) for key, val in wanted_keys.items() if key not in ['forces', 'reactions', 'displacements']])
 
 tag_mapping = {
     "number of nodes": {"tag": "nodes", 

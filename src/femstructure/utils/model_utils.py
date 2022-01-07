@@ -12,6 +12,7 @@
 #
 from itertools import groupby
 import numpy as np
+import pandas as pd
 from scipy.linalg import solveh_banded
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -26,7 +27,10 @@ wanted_keys = {
     "members": ["member", "n1", "n2", "section"],
     "node_loadcases": ["node", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
     "sections": ["section", "Ax", "Jxx", "Iyy", "Izz"],
-    "materials": ["material", "E", "G"]
+    "materials": ["material", "E", "G"],
+    "forces": ["member", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
+    "reactions": ["node", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
+    "displacements": ["node", "x", "y", "z", "xx", "yy", "zz"]
 }
 #    "sections": ["section", "Ax", "Jxx", "Iyy", "Izz"],
 
@@ -291,66 +295,46 @@ def value_to_table(didxs, values, nidx2ntag, _dof):
         yield [k] + lst
 
 
-def get_max(lst):
-    max_tag = [""]*12
-    max_val = [0.0]*12
-    tag2row = {}
-    for row in lst:
-        if len(row)==2:
-            vs = row[1]
-        else:
-            vs = row[1:12]
-        tag2row[row[0]] = vs
-        for i, v in enumerate(list(vs)[:12]):
-            if abs(v) > max_val[i]:
-                max_val[i] = v
-                max_tag[i] = row[0]
-    #print(set(max_tag) - set([""]), tag2row.keys(), max_val)
-    return [(tag, tag2row[tag]) for tag in sorted(list(set(max_tag)-set([""])), key=lambda x: x[0])]
-
-
-def to_string(lst, job='frame'):
-    limit = 13
+def get_max_df(df, job):
+    limit = 7
     if job == 'truss':
         limit = 4
-    mim_val, max_val = 0.0, 0.0
-    values = []
-    for row in lst:
-        if len(row)==2:
-            vs = row[1]
+    columns = list(df.columns)
+    cols = columns[1:limit]
+    tags, df1 = (df.iloc[:, 0]).values.tolist(), df.iloc[:, 1:limit]
+    arr = df1.to_numpy()
+    max_col = np.argmax(np.abs(arr), axis=0)
+    idxs, vals = [], []
+    for idx, g in groupby(sorted([(idx, i) for i, idx in enumerate(max_col)], key=lambda x: x[0]), key=lambda x: x[0]):
+        g = list(g)
+        g = sorted(list(set([d for _, d in g if abs(arr[idx, d]) > 0.0])))
+        if g:
+            vals += ['(' + ','.join(["%s"%cols[d] for d in g]) + ')']
+            idxs += [idx]
+    df1 = df.iloc[idxs]
+    df1 = df1.assign(max_at=vals)
+
+    return df1
+
+
+def to_df(values, where):
+    if where == 'loadings':
+        where = 'node_loadcases'
+    keys = wanted_keys[where]
+    rows = []
+    for row in values:
+        if len(row) == 2:
+            row0, vals = row[0], row[1]
         else:
-            vs = row[1:limit]
-        vals = []
-        for v in vs:
-            v = float(v)
-            a = abs(v)
-            if a > max_val:
-                max_val = a
-            vals += [v]
-        values += [(row[0], vals)]
-    base = 1.0
-    base_text = ""
-    if max_val > 1000:
-        base = 1000
-        base_text = " (x 10^3)"
-    elif max_val < 0.1:
-        base = 0.001
-        base_text = " (x 10^-3)"
-    limit = len(values[0][1])
-    tag = 'node'
-    if limit > 6:
-        tag = 'member'
-    ret_str = '%-8s\t'%tag + ' '.join(['%10d'%(i+1) for i in range(limit)]) + '\n'
-    if job == 'truss' and len(values[0][1])>3:
-        tag = 'member'
-        ret_str = '%-8s\t'%tag + ' '.join(['%10d'%(i+1) for i in range(2)]) + '\n'
-        values = [(row0, [val[0], val[3]]) for row0, val in values]
-    for row0, vals in values:
-        ret_str += '%-8s'%row0 + '\t' + ' '.join(['%10.3f'%(v/base) for v in vals]) + '\n'
+            row0, vals = row[0], row[1:]
+        if isinstance(vals, dict):
+            kkeys = keys[1:]
+            vals = [vals[key] for key in kkeys]
+        rows += [[row[0]] + [float(v) for  v in vals]]
 
-    return base_text + '\n' + ret_str  
+    return pd.DataFrame(data=rows, columns=keys[:len(rows[0])])
 
-
+    
 def plotter(forces, nodes, input_restraints, members, ntag2nidx):
     fig = plt.figure(figsize=(7,9))
     ax = fig.gca(projection='3d')
@@ -409,3 +393,44 @@ def plotter(forces, nodes, input_restraints, members, ntag2nidx):
     #ax.view_init(135, -110)
     plt.show()
     #plt.savefig('temp.png')
+
+
+def to_string1(lst, job='frame'):
+    print(lst)
+    limit = 13
+    if job == 'truss':
+        limit = 4
+    mim_val, max_val = 0.0, 0.0
+    values = []
+    for row in lst:
+        if len(row)==2:
+            vs = row[1]
+        else:
+            vs = row[1:limit]
+        vals = []
+        for v in vs:
+            v = float(v)
+            a = abs(v)
+            if a > max_val:
+                max_val = a
+            vals += [v]
+        values += [(row[0], vals)]
+    base = 1.0
+    base_text = ""
+    if max_val > 1000:
+        base = 1000
+        base_text = " (x 10^3)"
+    elif max_val < 0.1:
+        base = 0.001
+        base_text = " (x 10^-3)"
+    limit = len(values[0][1])
+    tag = 'node'
+    if limit > 6:
+        tag = 'member'
+    ret_str = '%-8s\t'%tag + ' '.join(['%10d'%(i+1) for i in range(limit)]) + '\n'
+    for row0, vals in values:
+        ret_str += '%-8s'%row0 + '\t' + ' '.join(['%10.3f'%(v/base) for v in vals]) + '\n'
+
+    return base_text + '\n' + ret_str 
+
+
