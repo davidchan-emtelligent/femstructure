@@ -27,7 +27,7 @@ to create a project 'two_story_frame' in the directory \_projects/two_story_fram
 
     create -c data/config_examples/config_two_story_frame,json
 
-to run a 'txt' or '3dd' input text file and create a project in the directory \_meta/name_of_file/...
+to run a 'txt' or '3dd' input text file and create a project in the directory \_projects/exB/...
 
     truss -i data/txt_examples/exB.3dd
     
@@ -35,7 +35,7 @@ to run a 'txt' or '3dd' input text file and create a project in the directory \_
  
      truss -i exB -v
 
-to create a standard highrise project and keep in \_meta/stories15/...
+to create a standard highrise project and keep in \_projects/stories15/...
 then run the project
 
     create -s 15
