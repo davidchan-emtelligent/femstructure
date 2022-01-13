@@ -10,6 +10,10 @@ To use `virtualenv` to manage dependencies, first setup a virtualenv environment
     python3 -m venv venv
     source venv/bin/activate
 
+You may want to upgrade your pip:
+
+    pip install --upgrade pip
+    
 Then within your environment install the requirements:
 
     pip install .
@@ -25,7 +29,7 @@ eg.
 
 to create a project 'two_story_frame' in the directory \_projects/two_story_frame/...
 
-    create -c data/config_examples/config_two_story_frame,json
+    create -c data/config_examples/config_two_story_frame.json
 
 to run a 'txt' or '3dd' input text file and create a project in the directory \_projects/exB/...
 
