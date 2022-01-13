@@ -4,6 +4,7 @@ import json
 import pandas as pd
 from femstructure.utils.model_utils import wanted_keys
 from femstructure.main import plot_thread
+from femstructure.utils.reader import read_tsv
 import argparse
 current_dir = os.path.dirname(os.path.realpath(__file__))
 default_config_path = os.path.join(current_dir, "config_master.json")
@@ -102,11 +103,11 @@ def to_df(config):
     df['restraints'] = pd.DataFrame(data=restraints, columns=['nidx'] + wanted_keys['restraints'])
     df['sections'] = pd.DataFrame(data=config['sections'], columns=wanted_keys['sections'])
     df['materials'] = pd.DataFrame(data=config['materials'], columns=wanted_keys['materials'])
-    if 'node_loadcases' not in config:
+    if 'node_loads' not in config:
         loadcases=[nodes[-1][:2]+(100.0, 100.0, 0.0, 0.0, 0.0, 0.0)]
     else:
-        loadcases = [nodes[-1][:2] + tuple(config['node_loadcases'])]
-    df['node_loadcases'] = pd.DataFrame(data=loadcases, columns=['nidx'] + wanted_keys['node_loadcases'])
+        loadcases = [nodes[-1][:2] + tuple(config['node_loads'])]
+    df['node_loads'] = pd.DataFrame(data=loadcases, columns=['nidx'] + wanted_keys['node_loads'])
     if actual_remove_member_tags:
         config.update({'remove_members': actual_remove_member_tags})
 
@@ -117,7 +118,7 @@ def to_df(config):
 def remove_main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('-c', '--config_path', dest='config_path', type=str, default="", help="config_path")
-    argparser.add_argument('-o', '--output_dir', dest='output_dir', type=str, default="", help="updated output dir")
+    argparser.add_argument('-o', '--output_dir', dest='output_dir', type=str, default="", help="output project dir")
     argparser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true', help="plot")
     args = argparser.parse_args()
 
@@ -126,7 +127,7 @@ def remove_main():
         config_path = default_config_path
     with open(config_path, 'r') as fj:
         config = json.load(fj)
-
+    print(args.output_dir, '-------------------------')
     if not args.output_dir:
         raise ValueError("ERROR: no ouput dir.")
     if not args.config_path:
@@ -135,32 +136,58 @@ def remove_main():
         print("input config_path  : %s"%config_path)
     print("output dir: %s"%args.output_dir)
 
-    tsv_dir = os.path.join(args.output_dir, config['project'], 'tsv')
-    if not os.path.isdir(tsv_dir):
-        os.system("mkdir -p %s"%tsv_dir)
+    project_dir = os.path.join(args.output_dir, config['project'])
+    tsv_dir = os.path.join(project_dir, 'tsv')
+    loads_dir = os.path.join(project_dir, 'loadings')
+    for _dir in [tsv_dir, loads_dir]:
+        if not os.path.isdir(_dir):
+            os.system("mkdir -p %s"%_dir)
 
     df = to_df(config)
     for k, d in df.items():
         if args.verbose:
             print(k, d.shape)
             print(d.head())
-        d.to_csv(os.path.join(tsv_dir, k+'.tsv'), sep='\t', index=False)
-    p1 = multiprocessing.Process(target=plot_thread, args=(tsv_dir,))
-    p1.start()
-    remove_nodes_str = input("remove nodes?(eg. 5A1,4A1,3A1 or contine)\n>>")
-    while remove_nodes_str[:1] != 'c':
-        config.update({'remove_nodes': remove_nodes_str.split(',')})
-        remove_members_str = input("remove member?(eg. b3H6-3H7,b3G7-3H7,c1H7-0H7 or contine)\n>>")
-        if remove_members_str[:] == 'c':
-            break
-        config.update({'remove_members': remove_members_str.split(',')})
-        df = to_df(config)
-        for k, d in df.items():
-            d.to_csv(os.path.join(tsv_dir, k+'.tsv'), sep='\t', index=False)
-        p1.join()
-        p1 = multiprocessing.Process(target=plot_thread, args=(tsv_dir,))
+        if k.endswith('loads'):
+            path = os.path.join(loads_dir, k+'.tsv')
+        else:
+            path = os.path.join(tsv_dir, k+'.tsv')
+        d.to_csv(path, sep='\t', index=False)
+        print("save to: %s"%path)
+
+    input_data = read_tsv(project_dir)
+    n_tags = [n.lower() for n in input_data['nodes'].keys()]
+    m_tags = [m.lower() for m in input_data['members'].keys()]
+    config['remove_nodes'] = config.get('remove_nodes', [])
+    config['remove_members'] = config.get('remove_members', []) 
+    while True:
+        p1 = multiprocessing.Process(target=plot_thread, args=(project_dir,))
         p1.start()
-        remove_nodes_str = input("remove nodes?(eg. 5A1,4A1,3A1 or contine)\n>>")
+        remove_nodes_str = str(input("remove nodes?(eg. 5A1,4A1,3A1 or quit) then close the fig to continue!\n>>"))
+        if remove_nodes_str[0].lower() == 'q':
+            break
+        ntags = [n.lower() for n in remove_nodes_str.split(',') if n.lower() in n_tags]
+        if ntags:
+            config.update({'remove_nodes': config['remove_nodes'] + ntags})
+            df = to_df(config)
+            for k, d in df.items():
+                d.to_csv(os.path.join(project_dir, k+'.tsv'), sep='\t', index=False)
+        remove_members_str = str(input("remove member?(eg. b3H6-3H7,b3G7-3H7,c1H7-0H7 or quit) then close the fig to continue!\n>>"))
+        if remove_members_str[0].lower() == 'q':
+            break
+        mtags = [m.lower() for m in remove_members_str.split(',') if m.lower() in m_tags];print(mtags,'---------')
+        if mtags:
+            config.update({'remove_members': config['remove_members'] + mtags});print(config['remove_members'])
+            df = to_df(config)
+            for k, d in df.items():
+                d.to_csv(os.path.join(project_dir, k+'.tsv'), sep='\t', index=False)
+        p1.join()
+        p1 = multiprocessing.Process(target=plot_thread, args=(project_dir,))
+        p1.start()
+        remove_nodes_str = str(input("continue?(eg. continue or quit) then close the fig to continue!\n>>"))
+        if remove_nodes_str[0].lower() == 'q':
+            break
+        p1.join()
     p1.join()
     output_config_path = os.path.join(args.output_dir, "config_%s_updated.json"%config['project'])
     with open(output_config_path, 'w') as fj:
@@ -194,20 +221,29 @@ def create_main():
         if args.stories > 0:
             name = "stories%d"%args.stories
             config.update({'project': name})
-        output_tsv = os.path.join('_projects', name, 'tsv')
+        project_dir = os.path.join('_projects', name)
     else:
-        output_tsv = args.output_tsv
+        project_dir = args.output_tsv
     if args.verbose:
-        print(output_tsv, os.path.isdir(output_tsv))
-    if not os.path.isdir(output_tsv):
-        os.system("mkdir -p %s"%output_tsv)
+        print(project_dir, os.path.isdir(project_dir))
 
+    tsv_dir = os.path.join(project_dir, 'tsv')
+    loads_dir = os.path.join(project_dir, 'loadings')
+    for _dir in [tsv_dir, loads_dir]:
+        if not os.path.isdir(_dir):
+            os.system("mkdir -p %s"%_dir)
     df = to_df(config)
     for k, d in df.items():
         if args.verbose:
             print(k, d.shape)
             print(d.head())
-        d.to_csv(os.path.join(output_tsv, k+'.tsv'), sep='\t', index=False)
+        if k.endswith('loads'):
+            path = os.path.join(loads_dir, k+'.tsv')
+        else:
+            path = os.path.join(tsv_dir, k+'.tsv')
+        d.to_csv(path, sep='\t', index=False)
+        print("save to: %s"%path)
+
     if not args.config_path:
         print("default_config_path: %s"%config_path)
     else:
@@ -219,11 +255,11 @@ def create_main():
         with open(config_path, 'w') as fj:
             json.dump(config, fj)
         print("save to            : %s"%config_path)
-    print("save to            : %s"%output_tsv)
+    print("save to            : %s"%project_dir)
     if not args.config_path and args.stories < 0:
         print("try                :       create -s 15      (will get _projects/stories15/tsv/....)")
 
-    plot_thread(output_tsv)
+    plot_thread(project_dir, [loads_dir.split('/')[-1]])
 
 
 if __name__ == '__main__':

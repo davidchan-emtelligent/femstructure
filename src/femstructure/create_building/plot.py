@@ -167,24 +167,28 @@ def main():
     if args.tsv_dir in meta_dirs:
         tsv_dir = os.path.join('_projects', args.tsv_dir, 'tsv')
     elif os.path.isdir(args.tsv_dir):
-        tsv = args.tsv_dir
+        tsv_dir = args.tsv_dir
     else:
         raise ValueError("ERROR: Invalid input tsv_dir.")
     print("tsv_dir :%s"%tsv_dir)
-
-    input_data = read_tsv(tsv_dir)
-    nodes, _, ntag2nidx = parse_node(input_data['nodes'])
-    #plotter(input_data['node_loadcases'], nodes, input_data['restraints'], input_data['members'], ntag2nidx)
-    pros = []
-    for section_axis in args.section_axes.split(','):
-        pros += [multiprocessing.Process(target=plot_section, args=(section_axis, input_data))]
-    for p in pros:
-        p.start()
-
-    for p in pros:
-        p.join()
-        p.close()
-
+    section_axes = args.section_axes.split(',')
+    while True:
+        input_data = read_tsv(tsv_dir)
+        nodes, _, ntag2nidx = parse_node(input_data['nodes'])
+        #plotter(input_data['node_loadcases'], nodes, input_data['restraints'], input_data['members'], ntag2nidx)
+        pros = [multiprocessing.Process(target=plotter, args=(input_data['node_loadcases'], nodes, input_data['restraints'], input_data['members'], ntag2nidx))]
+        for section_axis in section_axes:
+            pros += [multiprocessing.Process(target=plot_section, args=(section_axis, input_data))]
+        for p in pros:
+            p.start()
+        input_str = str(input("view section axes again?(q to quit) then close the fig to continue!\n>>"))
+        for p in pros:
+            p.join()
+            p.close()
+        section_axes = input_str.split(',')
+        if len(input_str) == 1 and input_str[0].lower() == 'q':
+            break
+        
 
 if __name__ == '__main__':
     main()

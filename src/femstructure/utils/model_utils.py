@@ -25,10 +25,14 @@ wanted_keys = {
     "nodes": ["node", "x", "y", "z"],
     "restraints": ["node", "x", "y", "z", "xx", "yy", "zz"],
     "members": ["member", "n1", "n2", "section"],
-    "node_loadcases": ["node", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
+    "node_loads": ["node", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
     "sections": ["section", "Ax", "Jxx", "Iyy", "Izz"],
     "materials": ["material", "E", "G"],
-    "forces": ["member", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
+    "uniformloads": ["member", "Ux", "Uy", "Uz"],
+    "pointloads": ["member", "x", "Px", "Py", "Pz"],
+    "trapezoidalloads": ["member", "xy1", "xy2", "wy1", "wy2", "xz1", "xz2", "wz1", "wz2"],
+    "fixed_end_forces": ["member", "F1x", "F1y", "F1z", "M1xx", "M1yy", "M1zz", "F2x", "F2y", "F2z", "M2xx", "My2y", "M2zz"],
+    "forces": ["member", "F1x", "F1y", "F1z", "M1xx", "M1yy", "M1zz", "F2x", "F2y", "F2z", "M2xx", "M2yy", "M2zz"],
     "reactions": ["node", "Fx", "Fy", "Fz", "Mxx", "Myy", "Mzz"],
     "displacements": ["node", "x", "y", "z", "xx", "yy", "zz"]
 }
@@ -40,7 +44,7 @@ def parse_node(node_data):
     didx_ntag = []
     ntag_didx = []
     for i, (ntag, d) in enumerate(node_data.items()):
-        x, y, z = d['x'], d['y'], d['z']
+        x, y, z = d[0], d[1], d[2]
         nodes[ntag] = (float(x), float(y), float(z))
         didx_ntag += [(i, ntag)]
         ntag_didx += [(ntag, i)]
@@ -50,9 +54,8 @@ def parse_node(node_data):
 
 def parse_restraint(restraint_data, ntag2nidx, _dof):
     restraints = []
-    for ntag, d in restraint_data.items():
+    for ntag, rs in restraint_data.items():
         node_idx = ntag2nidx[ntag]
-        rs = [d[k] for k in dir_columns[:_dof]]
         base = node_idx*_dof
         for i, r in enumerate(rs):
             if r == '1':
@@ -173,11 +176,11 @@ def _stiffness_frame_global(et, ek):
 
 def parse_member_frame(member_data, nodes, ntag2nidx, materials, sections):
     material = list(materials.values())[0]
-    E, G = float(material['E']), float(material['G'])
+    E, G = float(material[0]), float(material[1])
     for mtag, d in member_data.items():
-        n1, n2, stag = d['n1'], d['n2'], d['section']
+        n1, n2, stag = d[0], d[1], d[2]
         section = sections[stag]
-        A, Ix, Iy, Iz = float(section['Ax']), float(section['Jxx']), float(section['Iyy']), float(section['Izz'])
+        A, Ix, Iy, Iz = float(section[0]), float(section[1]), float(section[2]), float(section[3])
         member = {}
         member['tag'], member['node_tags'], member['properties'] = mtag, (n1, n2), (A, Ix, Iy, Iz, E, G)
         et, (l, m, n, length) = _rotation(mtag, nodes[n1], nodes[n2], dim=12)
@@ -197,11 +200,11 @@ def parse_member_frame(member_data, nodes, ntag2nidx, materials, sections):
 
 def parse_member_truss(member_data, nodes, ntag2nidx, materials, sections):
     material = list(materials.values())[0]
-    E = float(material['E'])
+    E = float(material[0])
     for mtag, d in member_data.items():
-        n1, n2, stag = d['n1'], d['n2'], d['section']
+        n1, n2, stag = d[0], d[1], d[2]
         section = sections[stag]
-        A = float(section['Ax'])
+        A = float(section[0])
         member = {}
         member['tag'], member['node_tags'], member['properties'] = mtag, (n1, n2), (A, E)
         et, (cx, cy, cz, length) = _rotation(mtag, nodes[n1], nodes[n2], dim=6)
@@ -230,7 +233,7 @@ def parse_member_fd_truss(member_data, nodes, ntag2nidx, materials):
 		if len(m) > 9:
 			E_m, G_m = m[9], m[10]
 		if materials:
-			E, G = materials['E'], materials['G']
+			E, G = materials[0], materials[1]
 		else:
 			E, G = float(E_m), float(G_m)
 		A = float(A)
@@ -319,7 +322,7 @@ def get_max_df(df, job):
 
 def to_df(values, where):
     if where == 'loadings':
-        where = 'node_loadcases'
+        where = 'node_loads'
     keys = wanted_keys[where]
     rows = []
     for row in values:
@@ -331,8 +334,10 @@ def to_df(values, where):
             kkeys = keys[1:]
             vals = [vals[key] for key in kkeys]
         rows += [[row[0]] + [float(v) for  v in vals]]
-
-    return pd.DataFrame(data=rows, columns=keys[:len(rows[0])])
+    if rows:
+        return pd.DataFrame(data=rows, columns=keys[:len(rows[0])])
+    else:
+        return None
 
     
 def plotter(forces, nodes, input_restraints, members, ntag2nidx):
@@ -346,11 +351,10 @@ def plotter(forces, nodes, input_restraints, members, ntag2nidx):
             ax.plot(x, y, z, '-b')
     else:
         for mtag, m in members.items():
-            n1, n2 = m['n1'], m['n2']
+            n1, n2 = m[0], m[1]
             x, y, z = zip(*[nodes[n1], nodes[n2]])
             ax.plot(x, y, z, '-b') 
     for label, restraints in input_restraints.items():
-        restraints = [restraints[k] for k in dir_columns]
         xyz = nodes[label]
         rs = [int(r) for r in restraints[1:]]
         text = ""
@@ -360,26 +364,26 @@ def plotter(forces, nodes, input_restraints, members, ntag2nidx):
             text = '='
         if text:
             ax.text(xyz[0], xyz[1], xyz[2], text, fontsize='xx-large', color='black', ha='center', va='center_baseline')
-    for ntag, d in forces.items():
-        fs = [d[key] for key in force_columns]
-        xyz = nodes[ntag]
-        for f, dir in zip(fs, dir_columns):
-            p = 0.0
-            text = ""
-            try:
-                p = float(f)
-                if p > 0.0:
-                    text = '--->'
-                elif p < 0.0:
-                    text = '<---'
-            except:
-                print("ERROR: invalid acting forces:", f, fs)
-            if text:
-                if len(dir) > 1:
-                    dir = dir[0]
-                    text = text.replace('-->', 'O>>').replace('<--', '<<O')
-                #print([p, text, dir])
-                ax.text(xyz[0], xyz[1], xyz[2], text, fontsize='xx-large', weight='bold', color='red', zdir=dir)
+    if forces:
+        for ntag, fs in forces.items():
+            xyz = nodes[ntag]
+            for f, dir in zip(fs, dir_columns):
+                p = 0.0
+                text = ""
+                try:
+                    p = float(f)
+                    if p > 0.0:
+                        text = '--->'
+                    elif p < 0.0:
+                        text = '<---'
+                except:
+                    print("ERROR: invalid acting forces:", f, fs)
+                if text:
+                    if len(dir) > 1:
+                        dir = dir[0]
+                        text = text.replace('-->', 'O>>').replace('<--', '<<O')
+                    #print([p, text, dir])
+                    ax.text(xyz[0], xyz[1], xyz[2], text, fontsize='xx-large', weight='bold', color='red', zdir=dir)
     z_max = 0
     for label in ntag2nidx.keys():
         xyz = nodes[label]
@@ -396,7 +400,6 @@ def plotter(forces, nodes, input_restraints, members, ntag2nidx):
 
 
 def to_string1(lst, job='frame'):
-    print(lst)
     limit = 13
     if job == 'truss':
         limit = 4

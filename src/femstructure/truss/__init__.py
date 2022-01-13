@@ -6,6 +6,6 @@ from ..frame import Frame
 
           
 class Truss(Frame):
-    def __init__(self, input_path):
-        super().__init__(input_path, job='truss')
+    def __init__(self, input_path, loading_dirs):
+        super().__init__(input_path, loading_dirs, job='truss')
 
